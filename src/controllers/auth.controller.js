@@ -1,9 +1,24 @@
 const userModel = require('../models/user.model');
+const jwt = require('jsonwebtoken'); 
 
 const register = async (req, res) => {
     const { name, email, password } = req.body;
+    const isExists = await userModel.findOne({ email });
+    if (isExists) {
+        return res.status(400).send('User already exists');
+    }
     const user = await userModel.create({ name, email, password });
-    res.send(user);
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.cookie('token', token, { httpOnly: true });
+    res.status(201).json({
+        message: 'User created successfully',
+        user: {
+            id: user._id,
+            name: user.name,
+            email: user.email
+        },
+        token: token
+    });
 };
 
 const login = async (req, res) => {
