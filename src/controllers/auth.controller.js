@@ -1,6 +1,6 @@
 const userModel = require('../models/user.model');
 const jwt = require('jsonwebtoken'); 
-
+const emailService = require('../services/email.service');
 // @desc Register a new user
 // @route POST /api/auth/register
 // @access Public
@@ -22,6 +22,13 @@ const register = async (req, res) => {
         },
         token: token
     });
+    
+    // Send welcome email
+    try {
+        emailService.userRegisteredEmail(user.email, user.name);
+    } catch (error) {
+        // ignore email errors
+    }
 };
 
 // @desc Login a user
