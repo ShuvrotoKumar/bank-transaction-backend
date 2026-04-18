@@ -4,7 +4,8 @@ const accountSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, "User is required"]
+        required: [true, "User is required"],
+        index: true
     },
    status: {
         type: String,
@@ -19,5 +20,6 @@ const accountSchema = new mongoose.Schema({
     },
     timestamps: true
 });
-
-module.exports = mongoose.model('Account', accountSchema);
+accountSchema.index({ user: 1, status: 1 }, { unique: true });
+const AccountModel = mongoose.model('Account', accountSchema);
+module.exports = AccountModel;
