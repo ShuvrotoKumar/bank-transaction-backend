@@ -1,9 +1,12 @@
 const express = require('express');
+const { authMiddleware } = require('../middleware/auth.middleware');
+const accountController = require('../controllers/account.controller');
 const router = express.Router();
 
 
 
-r
+router.post('/account', authMiddleware, accountController.createAccount);
+
 
 
 

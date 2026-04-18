@@ -5,9 +5,15 @@ const jwt = require('jsonwebtoken');
 
 async function authMiddleware(req, res, next) {
     try {
-        const token = req.cookies.token || req.header('Authorization').replace('Bearer ', '');
+        const authHeader = req.header('Authorization');
+        const token = req.cookies.token || (authHeader && authHeader.replace('Bearer ', ''));
+
+        if (!token) {
+            throw new Error('Missing token');
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await userModel.findById(decoded._id);
+        const user = await userModel.findById(decoded.id);
         if (!user) {
             throw new Error();
         }
