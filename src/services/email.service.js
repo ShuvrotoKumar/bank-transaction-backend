@@ -46,8 +46,15 @@ async function userRegisteredEmail(to, name) {
   await sendEmail(to, subject, text, html);
 }
 
+async function transactionCreatedEmail(userEmail,name, toAccount, amount) {
+  const subject = 'Transaction created ';
+  const text = `Hello ${name}, your transaction of ${amount} to ${toAccount} has been created`;
+  const html = `<h1>Hello ${name}, your transaction of ${amount} to ${toAccount} has been created</h1>`;
+  await sendEmail(userEmail, subject, text, html);
+}
 
 module.exports = {
   sendEmail,
-  userRegisteredEmail
+  userRegisteredEmail,
+  transactionCreatedEmail
 };

@@ -2,7 +2,7 @@ const transactionModel = require("../models/transaction.model");
 const ledgerModel = require("../models/ledger.model");
 const emailService = require("../services/email.service");
 const AccountModel = require("../models/account.model");
-
+const mongoose = require("mongoose");
 
 
 
@@ -49,34 +49,40 @@ async function createTransaction(req, res) {
    if(fromAccountBalance < amount) {
     return res.status(400).json({ message: "Insufficient balance" });
    }
-   const toAccountBalance = await toAccountDoc.getBalance();
-    
+   
+
+
+   const session = await mongoose.startSession();
+   session.startTransaction();
+
    const transaction = await transactionModel.create({
     fromAccount,
     toAccount,
     amount,
-    idempotencyKey
-   });
-
-   await ledgerModel.create({
+    idempotencyKey,
+    status: "pending"
+   }, { session });
+    const debitLedger = await ledgerModel.create({
     account: fromAccount,
     amount: -amount,
     transaction: transaction._id
-   });
+   }, { session });
 
-   await ledgerModel.create({
+   const creditLedger = await ledgerModel.create({
     account: toAccount,
     amount,
     transaction: transaction._id
-   });
+   }, { session });
 
-   await emailService.sendEmail({
-    to: req.user.email,
-    subject: "Transaction created",
-    text: "Transaction created"
-   });
+   transaction.status = "completed";
+   await transaction.save({ session });
 
-   return res.status(201).json({ message: "Transaction created" });
+   await session.commitTransaction();
+   await session.endSession();
+
+   await emailService.transactionCreatedEmail(req.user.email, req.user.name, toAccount, amount);
+
+   return res.status(201).json({ message: "Transaction created and email sent" });
 }
 
 module.exports = {
