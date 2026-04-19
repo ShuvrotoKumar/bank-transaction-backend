@@ -22,12 +22,12 @@ const ledgerSchema = new mongoose.Schema({
         min: [0, "Amount must be positive"],
         immutable: true
     },
-    // balance: {
-    //     type: Number,
-    //     required: [true, "Balance is required"],
-    //     min: [0, "Balance must be positive"],
-    //     immutable: true
-    // },
+    balance: {
+        type: Number,
+        required: [true, "Balance is required"],
+        min: [0, "Balance must be positive"],
+        immutable: true
+    },
     type: {
         type: String,
         enum: ["debit", "credit"],
