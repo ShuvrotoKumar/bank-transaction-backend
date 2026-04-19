@@ -89,14 +89,79 @@ async function createTransaction(req, res) {
 async function createInitialTransaction(req, res) {
     const { amount, toAccount , idempotencyKey } = req.body;
 
+    console.log('=== DEBUG createInitialTransaction ===');
+    console.log('req.body:', req.body);
+    console.log('amount:', amount, 'toAccount:', toAccount, 'idempotencyKey:', idempotencyKey);
+    console.log('req.user._id:', req.user?._id);
+
     if(!amount || !toAccount || !idempotencyKey) {
         return res.status(400).json({ message: "Missing required fields" });
     }
     
     const toUserAccount = await AccountModel.findById(toAccount);
+    console.log('toUserAccount:', toUserAccount ? 'found' : 'not found');
     if(!toUserAccount) {
-        return res.status(400).json({ message: "Invalid account" });
+        return res.status(400).json({ message: "Destination account (toAccount) not found" });
     }
+
+
+    const fromUserAccount = await AccountModel.findOne({
+        systemUser: true,
+        user: req.user._id
+    });
+    console.log('fromUserAccount:', fromUserAccount ? 'found' : 'not found');
+    console.log('fromUserAccount._id:', fromUserAccount?._id);
+    if(!fromUserAccount) {
+        return res.status(400).json({ message: "System user account not found. Please create an account for the system user first." });
+    }
+
+
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    const transactionData = {
+        fromAccount: fromUserAccount._id,
+        toAccount: toUserAccount._id,
+        amount,
+        idempotencyKey,
+        status: "pending"
+    };
+    console.log('Creating transaction with data:', transactionData);
+
+    const [transaction] = await transactionModel.create([transactionData], { session });
+
+    // Calculate balances
+    const fromBalance = await fromUserAccount.getBalance();
+    const toBalance = await toUserAccount.getBalance();
+
+    const [debitLedger] = await ledgerModel.create([{
+        account: fromUserAccount._id,
+        amount: amount,
+        balance: fromBalance - amount,
+        transaction: transaction._id,
+        type: "debit"
+    }], { session });
+
+    const [creditLedger] = await ledgerModel.create([{
+        account: toUserAccount._id,
+        amount: amount,
+        balance: toBalance + amount,
+        transaction: transaction._id,
+        type: "credit"
+    }], { session });
+
+    transaction.status = "completed";
+    await transaction.save({ session });
+
+    await session.commitTransaction();
+    await session.endSession();
+
+    await emailService.transactionCreatedEmail(req.user.email, req.user.name, toUserAccount._id, amount);
+
+    return res.status(201).json({ message: "Initial transaction created and email sent" });
+
+    
 }
 module.exports = {
     createTransaction,

@@ -25,7 +25,6 @@ const ledgerSchema = new mongoose.Schema({
     balance: {
         type: Number,
         required: [true, "Balance is required"],
-        min: [0, "Balance must be positive"],
         immutable: true
     },
     type: {
