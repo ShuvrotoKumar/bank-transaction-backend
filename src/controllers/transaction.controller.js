@@ -85,6 +85,20 @@ async function createTransaction(req, res) {
    return res.status(201).json({ message: "Transaction created and email sent" });
 }
 
+
+async function createInitialTransaction(req, res) {
+    const { amount, toAccount , idempotencyKey } = req.body;
+
+    if(!amount || !toAccount || !idempotencyKey) {
+        return res.status(400).json({ message: "Missing required fields" });
+    }
+    
+    const toUserAccount = await AccountModel.findById(toAccount);
+    if(!toUserAccount) {
+        return res.status(400).json({ message: "Invalid account" });
+    }
+}
 module.exports = {
-    createTransaction
+    createTransaction,
+    createInitialTransaction
 }
