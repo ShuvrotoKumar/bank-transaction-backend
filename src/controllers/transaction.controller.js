@@ -4,9 +4,10 @@ const emailService = require("../services/email.service");
 const AccountModel = require("../models/account.model");
 const mongoose = require("mongoose");
 
-
-
-
+/**
+ * Creates a transaction between two user accounts
+ * Validates sufficient balance and account status before processing
+ */
 async function createTransaction(req, res) {
    const { fromAccount, toAccount, amount, idempotencyKey } = req.body;
 
@@ -86,31 +87,29 @@ async function createTransaction(req, res) {
 }
 
 
+/**
+ * Creates an initial transaction from system user account to a user account
+ * Only accessible by authenticated system users
+ */
 async function createInitialTransaction(req, res) {
     const { amount, toAccount , idempotencyKey } = req.body;
 
-    console.log('=== DEBUG createInitialTransaction ===');
-    console.log('req.body:', req.body);
-    console.log('amount:', amount, 'toAccount:', toAccount, 'idempotencyKey:', idempotencyKey);
-    console.log('req.user._id:', req.user?._id);
-
+    // Validate required fields
     if(!amount || !toAccount || !idempotencyKey) {
         return res.status(400).json({ message: "Missing required fields" });
     }
     
+    // Verify destination account exists
     const toUserAccount = await AccountModel.findById(toAccount);
-    console.log('toUserAccount:', toUserAccount ? 'found' : 'not found');
     if(!toUserAccount) {
         return res.status(400).json({ message: "Destination account (toAccount) not found" });
     }
 
-
+    // Find system user's account for the transaction source
     const fromUserAccount = await AccountModel.findOne({
         systemUser: true,
         user: req.user._id
     });
-    console.log('fromUserAccount:', fromUserAccount ? 'found' : 'not found');
-    console.log('fromUserAccount._id:', fromUserAccount?._id);
     if(!fromUserAccount) {
         return res.status(400).json({ message: "System user account not found. Please create an account for the system user first." });
     }
@@ -120,6 +119,7 @@ async function createInitialTransaction(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
 
+    // Prepare transaction data with system account as source
     const transactionData = {
         fromAccount: fromUserAccount._id,
         toAccount: toUserAccount._id,
@@ -127,8 +127,8 @@ async function createInitialTransaction(req, res) {
         idempotencyKey,
         status: "pending"
     };
-    console.log('Creating transaction with data:', transactionData);
 
+    // Create transaction within database session
     const [transaction] = await transactionModel.create([transactionData], { session });
 
     // Calculate balances

@@ -1,10 +1,13 @@
 const userModel = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 
-
-
+/**
+ * Middleware to authenticate any user via JWT token
+ * Supports both cookie and Authorization header
+ */
 async function authMiddleware(req, res, next) {
     try {
+        // Extract token from cookie or Authorization header
         const authHeader = req.header('Authorization');
         const token = req.cookies.token || (authHeader && authHeader.replace('Bearer ', ''));
 
@@ -12,6 +15,7 @@ async function authMiddleware(req, res, next) {
             throw new Error('Missing token');
         }
 
+        // Verify token and attach user to request
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await userModel.findById(decoded.id);
         if (!user) {
@@ -25,36 +29,34 @@ async function authMiddleware(req, res, next) {
 }
 
 
+/**
+ * Middleware to authenticate system users only
+ * Validates JWT token and checks systemUser flag
+ */
 async function authSystemUserMiddleware(req, res, next) {
     try {
-        console.log('=== DEBUG: authSystemUserMiddleware ===');
-        console.log('Cookies:', req.cookies);
-        console.log('Authorization header:', req.headers.authorization);
-        
+        // Extract token from cookie or Authorization header
         const token = req.cookies.token || req.headers.authorization?.replace('Bearer ', '');
-        console.log('Token found:', token ? 'YES' : 'NO');
 
         if (!token) {
             throw new Error('Missing token');
         }
 
+        // Verify JWT and extract user ID
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log('Decoded token:', decoded);
         
+        // Find user with systemUser field (excluded by default)
         const user = await userModel.findById(decoded.id).select('+systemUser');
-        console.log('User found:', user ? 'YES' : 'NO');
-        console.log('User systemUser field:', user?.systemUser);
         
+        // Validate user exists and has system user privileges
         if (!user || !user.systemUser) {
-            throw new Error(`User not found or not system user. systemUser=${user?.systemUser}`);
+            throw new Error('User not found or not system user');
         }
         
         req.user = user;
-        console.log('=== SUCCESS: System user authenticated ===');
         next();
     } catch (error) {
-        console.log('=== ERROR:', error.message, '===');
-        res.status(401).send({ error: 'Please authenticate.', detail: error.message });
+        res.status(401).send({ error: 'Please authenticate.' });
     }
 }
 
